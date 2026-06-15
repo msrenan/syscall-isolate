@@ -18,6 +18,17 @@ int do_isolate(pid_t pid, unsigned int flags, int cgroup_fd,
 	// Gets the fd from the cgroug_fd
 	fd = fget(cgroug_fd);
 
+	// No flags supported for now
+	if (flags != 0)
+		return -EINVAL;
+
+	struct *cgroup = get_cgroup_from_file(f);
+	if (IS_ERR(cgroup))
+		return PTR_ERR(cgroup);
+
+
+	/* checks namespace_flags */
+
 	
 }
 
