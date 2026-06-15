@@ -36,4 +36,111 @@ The most common goal of all malwares is to take the **entire** control of target
 > When a virus gain root access, it becomes a **rootkit** and can perform some interesting and powerful operations to infect even more your machine. Once a rootkit, it's really difficult to stop it.
 
 The ways a malware can try to escalate privileges include:
-- [to do]
+- **Kernel exploits**: The malware will try to edit its on *struct cred*, to add root privilege on its group/user ID. It's done by exploiting memory management failures inside kernel's subsystems like `io_rings`, `network management`, and some `drivers`. Once the exploit succeed, the malware is now able to overwrite its on *struct cred* to upgrade its on privileges.
+- **Misconfigured SUID Binaries**: Malware scans HD/SSD looking for legitimate **SUID** binaries that were flagged this way by some **error**. Then, malware abuses this condition to run **root** commands to upgrade its own privileges or run malicious code with **root** privileges.
+- **Permissive sudo**: If a system administrator have misconfigured the `/etc/sudoers` file, the malware can use this breach to run commands as *sudo*, using this to upgrade its own privileges.
+- **Linux Capabilities**: Instead of giving full power to a program, using **root privileges**, Linux let you give `Capabilities`, which are some smaller privileges from **root**. If a common binary receive the `CAP_SETUID` capabilitiy accidentally, malware can abuse it to change its own identity to **root**, escalating its own privileges.
+
+## Persistency Mechanisms
+
+Commonly, this phase starts right after acquiring the necessary privileges, and its focus is to **make the malware an imortal process**. If the process is killed, it will start running again. If the power is cut off, the process will start at the next power on. If you try to delete de virus, it will be reinstalled. Basically, the malware need ways to **always be running** so the attacker will never miss an information/oportunity.
+
+This way, a hacker need to breach in your machine **only one time**. The malware will be by itsown and keep itself always running through the **persistency mechanisms**. Let's learn some of them:
+
+- **Systemd Timers**: Instead of creating a standart service that is running 24/7, a malware can create a **Sytemd Timer**. Then, the timer will be configured to wake up the virus once or twice a day. That way, it's significantly more difficult for a anti-virus to identify the malware.
+- **Systemd Generators**: This may be one of the most stealth techniques. *Generetors* are scripts located in `/lib/systemd/system-generators/` and they are executed by `systemd` **before** building the dependency graphic of root servies. Once injected in a generator, a malware can be executed before other legitimate root services, being capable of changing some configuration of these services before they're setted up. This way, it's **even more difficult to a anti-virus or linux default service to identify the malware**.
+- **Anonimous spool directories**: Malware can inject malicious code inside *spool directories* (rather on `/etc/crontab`), so that way it can abuse on automatic processes. Once injected its code inside a spool directory, it will hide its malicious file with some legitimate like names, and it will be ran automatically by linux.
+- **Anacron abuse**: `anacron` manages processes that need to run even if the machine was shut down at the target time. Malwares can use `/etc/anacrontab` to grant that if the target machine is turned on again, the attack will be resumed the momento the system finishes setting up.
+- **Shell scripts traps**: A malware can use the admin own activities to keep itself running. It does that by inject some malicious code silently in some shell configuration files like `.bashrc` or `.bash_profile`. Every time the machine administrator open a Shell, it will read and execute the malicious line at configuration files and **will help the virus**.
+- **`initramfs` tampering**: The `initramfs` is a packed image file located inside `/boot/initrd.img` that contains a small linux system that will be loaded in RAM right after the bootloader (**GRUB**). This action is made to load basic drivers before the main disk (*root*) is mounted. The malware can abuse this, unpacking this image, inject its malicious code into it and packing it again. So, the next time the machine restarts, malware will start running **before the main disk is mounted**. It grants the memory control virus need to become invisible and active.
+- **Remote access backdoors**: Malwares can activate `ForceCommand` in `/etc/ssh/sshd_config` file to make a malicous script run every time someone login. But even more sofisticated than that is activating `AuthorizedKeysCommand`, because malware will make the machine search for authorized keys not at the default local file but at a URL controlled by the attacker. If the attacker needs to access the target machine, SSH will make a request to the **hacker's URL**, will validate the key and will let the attacker in.
+
+---
+
+Okay, so now we understand how a virus can escalate privileges and keep itself running at the target's machine. But once these phases finish, what it will do?
+
+## Post-invasion
+
+The malware is already inside target's machine and it's already setted up with **root privileges** and **persitency mechanisms**.
+
+Now, the malware and the attacker have some options that depend on the final goal of the attacker.
+
+- If a hacker wants only to spy the target's machine, so the next step is to set up some backdoors that will let virus send information to the attacker.
+- If the goal is to take control of the machine, the malware will try to open remote access backdoors to grant the attacker access to the target's machine.
+- If the goal is to hijack the machine for cripto-mining, the malware itself is capable of hijacking the GPU, once it becomes a rootkit.
+- If hacker just want to burn target's machine out, once the virus become a rootkit, it's gameover for target.
+
+---
+
+Okay, so we understand a little about how viruses work on *Linux*.
+
+
+ Now, thinking about our new syscall proposal, let's think about the isolation process.
+
+# 2. Isolation
+
+```mermaid
+---
+title: Virus Behavior on Linux
+---
+flowchart LR
+
+    entry("Virus arrive at target's machine")
+    hiding{"Virus tries to hide"}
+    hiding-failure("Virus is successfully stopped and permanently killed")
+    hidden["Virus is successfully hidden"]
+
+    pesc{"Virus will try to escalate privileges"}
+    pmec{"Virus will try to perfomr some persistency mechanism"}
+    pesc-failure("Virus was not able to escalate privileges")
+    pesc-partial["Virus was not able to get root privileges, but was able to get some minor ones"]
+    pesc-sucess["Virus have sucessfully able to acquire root privilege"]
+    
+    pmec-failure("Virus was not able to set up a persistency mechanism")
+    pmec-sucess["Virus succeeded on setting up persistency mechanisms"]
+    
+    action-loop(("Possible actions"))
+    a1("Backdor opening")
+    a2("SSH poisoning")
+    a3("Spying")
+    a4("Start destructive process")
+    a5("Hardware Hijack")
+
+    subgraph f1["Arrival phase"]
+        entry --> hiding
+        hiding -- "Virus fails to hide" --> hiding-failure
+    end
+
+    
+    hiding -- "Virus succeeded on hiding" --> hidden
+
+    subgraph f2["Infection phase"]
+            hidden --> f21
+        subgraph f21["Privilege escalation"]
+            pesc --> pesc-failure
+            pesc --> pesc-partial
+            pesc --> pesc-sucess
+            pesc-partial -- "Virus will retry acquiring root privileges" --> pesc
+        end
+
+        pesc-partial -- "Virus will try to set up some persistency mechanism with this little privilege enhancement" --> f22
+        pesc-sucess --> f22
+
+        subgraph f22["Persistency Mechanism"]
+            pmec --> pmec-sucess
+            pmec --> pmec-failure
+        end
+    end
+
+    pmec-sucess -- "At this point, the malware is already strongly attatched to target's machine." --> f3
+
+    subgraph f3["Post-Infection"]
+        note["**Note**: This phase will run in loop once it's started"]
+        action-loop --> a1
+        action-loop --> a2
+        action-loop --> a3
+        action-loop --> a4
+        action-loop --> a5
+    end
+
+```
