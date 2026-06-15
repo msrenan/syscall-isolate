@@ -78,7 +78,7 @@ Okay, so we understand a little about how viruses work on *Linux*.
 ---
 title: Virus Behavior on Linux
 ---
-flowchart LR
+flowchart TB
 
     entry("Virus arrive at target's machine")
     hiding{"Virus tries to hide"}
@@ -121,6 +121,7 @@ flowchart LR
         pesc-partial -- "Virus will try to set up some persistency mechanism with this little privilege enhancement" --> f22
         pesc-sucess --> f22
 
+        
         subgraph f22["Persistency Mechanism"]
             pmec --> pmec-sucess
             pmec --> pmec-failure
