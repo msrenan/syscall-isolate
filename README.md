@@ -155,3 +155,44 @@ That way, process will be put in "a container", and will be free to do what it h
 Based on that logging of the process behavior, we should be able to decide if process need to be erased from the machine or if process can leave isolation.
 
 > For studying purposes, we will focus, on this repository, on building only the **isolation** syscall. The observer utility will not be a discussion topic (at least for now).
+
+Now, let's think about the **syscall behavior**
+
+```mermaid
+---
+title: "Syscall - isolate(PID, FLAGS, CGROUP)"
+---
+flowchart TB
+entry("Entrypoint")
+perm{"Check permissions"}
+flags{"Check flags"}
+namsp{"Check namespace"}
+cgrp{"Check cgroup"}
+
+error("Return error")
+
+entry --> perm
+perm --> flags
+flags --> namsp
+namsp --> cgrp
+cgrp --> block
+
+
+perm -- "Insufficient permissions" --> error
+flags -- "Invalid flags" --> error
+namsp -- "Invalid namespace" --> error
+cgrp -- "Invalid cgroup" --> error
+
+
+subgraph i["Isolation"]
+    block["Process blocking"]
+    namsp_a["Apply namespace"]
+    cgroup_a["Apply cgroup"]
+    block --> namsp_a
+    namsp_a --> cgroup_a
+    
+end
+cgroup_a --> ret
+
+ret("Returns")
+```
