@@ -74,11 +74,6 @@ Now, the malware and the attacker have some options that depend on the final goa
 
 Okay, so we understand a little about how viruses work on *Linux*.
 
-
- Now, thinking about our new syscall proposal, let's think about the isolation process.
-
-# 2. Isolation
-
 ```mermaid
 ---
 title: Virus Behavior on Linux
@@ -144,3 +139,19 @@ flowchart LR
     end
 
 ```
+
+ Now, thinking about our new syscall proposal, let's think about the isolation process.
+
+# 2. Isolation
+
+A good start is to define *isolation*. We agree that an isolation process, specifically a **malware** isolation process, would work like a quarantine. The process should be put in "another reality" where it is alone an can still run if it cans. However, while in this alternative reality, we still would be able to keep track of what this process want to do or is trying to do. 
+
+So, based on that thought the best approach to **isolating** a process for our new syscall proposal is:
+- Changing process namespace to detatch it from the rest of the operational system.
+- Changing process cgroup to limit the amount of hardware it will be able to use while isolated.
+
+That way, process will be put in "a container", and will be free to do what it has to do. On the other hand, while running without any limit inside the "container", there will be a utilitary that will be monitoring the process behavior. 
+
+Based on that logging of the process behavior, we should be able to decide if process need to be erased from the machine or if process can leave isolation.
+
+> For studying purposes, we will focus, on this repository, on building only the **isolation** syscall. The observer utility will not be a discussion topic (at least for now).
